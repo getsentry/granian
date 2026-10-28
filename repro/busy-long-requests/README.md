@@ -39,6 +39,14 @@ docker compose up --build --exit-code-from report --attach report --attach loadg
 
 The scenario takes about 10 minutes. The stack stops when `report` exits.
 
+`report` writes to `./out` through a bind mount. If the directory isn't shared
+with your Docker VM, the files stay inside the VM. That happens with Colima
+outside your home directory, for example under `/tmp`. Copy them out with:
+
+```bash
+docker compose cp report:/out .
+```
+
 By default `web` installs granian 2.8.5 from PyPI. To build a granian checkout
 instead, for example to test a fix, point `GRANIAN_SRC` at it:
 
@@ -81,7 +89,38 @@ Set these in the environment of the `docker compose up` command.
 
 ## Results
 
-`report` prints a summary like this at the end and saves it to `out/summary.md`.
+From a run with the defaults (granian 2.8.5 from PyPI):
+
+- While the long request ran, granian's busy counter grew by 288
+  thread-seconds. The load generator measured 576, of which 285 was the long
+  request. So granian counted only the short requests.
+- In the first scrape after the request finished, the counter jumped by 313
+  thread-seconds. Steps were ~14 before it.
+- The KEDA busy value (÷ 8) read at most 75‰ while the request ran. It crossed
+  the 600 target 29s after the request finished and stayed at ~850‰ for 45s.
+
+| Series | Baseline (median) | While the long request runs (max) | After it finishes (max) | Time at or above 600 |
+|---|---|---|---|---|
+| Actual busy threads (pod) | 0.96 | 2.16 | 1.80 | - |
+| granian-reported busy threads (pod) | 0.95 | 1.13 | 7.66 | - |
+| Live blocking threads (pod) | 8.00 | 12.00 | 12.00 | - |
+| KEDA busy, ÷ live threads (before ops#24724) | 122 | 131 | 1137 | 45s |
+| KEDA busy, ÷ 8 (ops#24724) | 61 | 75 | 853 | 45s |
+| KEDA busy, ÷ 8, clamped at 1000 | 61 | 75 | 853 | 45s |
+| KEDA busy, ÷ 8, rate[5m] | 15 | 66 | 191 | 0s |
+
+Clamping at 1000 doesn't help. One 300s request reads ~850‰, under the clamp.
+A 600s request should read about twice that (not run here); the clamp cuts it
+to 1000‰, still above target. A `[5m]` rate keeps the spike under target, at
+the cost of slower scale-up.
+
+Builds of 2.8.6 from source (getsentry/granian) read the same: 74‰ while the
+request ran and 855‰ after. So does 2.8.6 with the `src/blocking.rs` changes
+from [emmett-framework/granian#929](https://github.com/emmett-framework/granian/pull/929)
+applied: 73‰ and 856‰. That PR stops counting GIL wait as busy time, but it
+still adds busy time only after `task.run(py)` returns.
+
+`report` prints the same summary at the end and saves it to `out/summary.md`.
 The chart in `out/busy-long-requests.png` has three panels:
 
 1. Busy thread-seconds since start. The load generator's count rises steadily
