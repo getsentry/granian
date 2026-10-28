@@ -1,0 +1,11 @@
+.git
+.github
+.venv
+target
+benchmarks
+docs
+tests
+**/__pycache__
+**/*.pyc
+granian/*.so
+repro/*/out

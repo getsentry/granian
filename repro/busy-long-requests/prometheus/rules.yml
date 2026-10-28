@@ -1,0 +1,55 @@
+# granian_blocking_busy_cumulative is in microseconds, so rate() / 1000 is
+# per-mille of one thread. Dividing by a thread count gives per-mille of the
+# pool, which is what the KEDA busy trigger compares with target_busy * 10.
+#
+# The keda:* rules follow the busy trigger in getsentry/ops
+# k8s/services/getsentry/_web-deployment.yaml.j2, reconstructed from
+# PRODENG-2999. The deployed query also ends in `or vector(1000)`, which only
+# matters when the series are missing, so it's left out here. Its label
+# selector is replaced by job="granian".
+groups:
+  - name: busy
+    interval: 15s
+    rules:
+      # Busy threads summed over the pod's workers, as granian reports them.
+      - record: pod:granian_busy_threads:rate1m
+        expr: sum(rate(granian_blocking_busy_cumulative{job="granian"}[1m])) / 1e6
+      # The same from the load generator's clock, which counts requests while they run.
+      - record: pod:actual_busy_threads:rate1m
+        expr: sum(rate(loadgen_busy_seconds_total{job="loadgen"}[1m]))
+      - record: pod:granian_blocking_threads:sum
+        expr: sum(granian_blocking_threads{job="granian"})
+
+      # Before getsentry/ops#24724: divides by the live (reaped) thread count.
+      - record: keda:busy_permille:live_threads
+        expr: |
+          max(
+            quantile by (pod) (0.95,
+              rate(granian_blocking_busy_cumulative{job="granian"}[1m]) / 1000
+              / max_over_time(granian_blocking_threads{job="granian"}[1m])
+            )
+          )
+      # getsentry/ops#24724: divides by the configured pool (--blocking-threads 8).
+      - record: keda:busy_permille:configured_threads
+        expr: |
+          max(
+            quantile by (pod) (0.95,
+              rate(granian_blocking_busy_cumulative{job="granian"}[1m]) / 1000 / 8
+            )
+          )
+      # Mitigation: clamp each worker at 1000 before the quantile.
+      - record: keda:busy_permille:configured_threads_clamped
+        expr: |
+          max(
+            quantile by (pod) (0.95,
+              clamp_max(rate(granian_blocking_busy_cumulative{job="granian"}[1m]) / 1000 / 8, 1000)
+            )
+          )
+      # Mitigation: a 5m rate spreads a finished request's time over 5 minutes.
+      - record: keda:busy_permille:configured_threads_rate5m
+        expr: |
+          max(
+            quantile by (pod) (0.95,
+              rate(granian_blocking_busy_cumulative{job="granian"}[5m]) / 1000 / 8
+            )
+          )
