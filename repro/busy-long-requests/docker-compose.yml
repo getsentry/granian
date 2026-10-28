@@ -49,10 +49,9 @@ services:
         condition: service_healthy
 
   prometheus:
-    image: prom/prometheus:v3.5.0
-    volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - ./rules.yml:/etc/prometheus/rules.yml:ro
+    build:
+      context: .
+      target: prometheus
     # Start every run with an empty TSDB, so samples from a previous run
     # can't leak into this one through the 5m lookback.
     tmpfs:

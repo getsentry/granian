@@ -44,3 +44,8 @@ FROM python:${PYTHON_VERSION}-slim AS tools
 RUN pip install --no-cache-dir matplotlib
 WORKDIR /app
 COPY loadgen.py report.py ./
+
+# Config is baked in rather than bind-mounted, so the stack also runs from
+# directories the Docker VM doesn't share (e.g. /tmp with Colima).
+FROM prom/prometheus:v3.5.0 AS prometheus
+COPY prometheus.yml rules.yml /etc/prometheus/
