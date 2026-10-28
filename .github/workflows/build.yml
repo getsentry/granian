@@ -32,11 +32,13 @@ jobs:
           - os: ubuntu
             platform: linux
             target: i686
+            container: ghcr.io/rust-cross/manylinux2014-cross:i686
             interpreter: 3.10 3.11 3.12 3.13 3.14 3.15
             allocator: jemalloc
           - os: ubuntu
             platform: linux
             target: i686
+            container: ghcr.io/rust-cross/manylinux2014-cross:i686
             interpreter: 3.14t 3.15t
             allocator: mimalloc
           - os: ubuntu
