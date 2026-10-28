@@ -24,7 +24,7 @@ over.
 | Service | What it does |
 |---|---|
 | `web` | granian serving a WSGI app (`app.py`) with `--workers 2 --blocking-threads 8 --blocking-threads-idle-timeout 20`, matching us default-common. Metrics on `:9090`. `GET /sleep?s=N` holds a blocking thread for N seconds. |
-| `loadgen` | Sends ~10 req/s of ~100ms requests. After 90s it sends one 300s request, then keeps the baseline going for 150s. It exports `loadgen_busy_seconds_total`, which counts requests while they're still running. That's the ground truth. |
+| `loadgen` | Sends ~10 req/s of ~100ms requests. After 2 minutes it sends one 300s request, then keeps the baseline going for 150s. It exports `loadgen_busy_seconds_total`, which counts requests while they're still running. That's the ground truth. |
 | `prometheus` | Scrapes both every 15s. `prometheus/rules.yml` records the KEDA busy trigger in four variants: before getsentry/ops#24724, with it, and two mitigations. |
 | `report` | Prints the trigger values live. When loadgen is done, it writes `out/busy-long-requests.png`, `out/summary.md` and `out/series.csv`. |
 
@@ -38,7 +38,7 @@ cd repro/busy-long-requests
 docker compose up --build --exit-code-from report --attach report --attach loadgen
 ```
 
-The scenario takes about 9 minutes. The stack stops when `report` exits.
+The scenario takes about 10 minutes. The stack stops when `report` exits.
 
 The first build compiles granian from this checkout, so the repro also checks
 changes to `src/`. That takes a few minutes the first time; later builds reuse
@@ -67,7 +67,7 @@ Set these in the environment of the `docker compose up` command.
 |---|---|---|
 | `LONG_REQUEST_SECONDS` | `300` | Length of the long request. The scm-rpc hangs in us were ~600s. |
 | `LONG_REQUESTS` | `1` | Long requests sent at the same time. |
-| `WARMUP_SECONDS` | `90` | Baseline-only time before the long request. |
+| `WARMUP_SECONDS` | `120` | Baseline-only time before the long request. |
 | `COOLDOWN_SECONDS` | `150` | Baseline-only time after it finishes. Keep it at least 90s so the spike is captured. |
 | `BASELINE_RPS` | `10` | Short requests per second (Poisson arrivals). |
 | `BASELINE_SECONDS` | `0.1` | Mean short request length (uniform, ±50%). |

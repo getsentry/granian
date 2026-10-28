@@ -166,7 +166,7 @@ def summarize(data, status):
     ]
     for key in ('actual', 'reported', 'threads', *KEDA_KEYS):
         series = data[key]
-        base = window(series, start + 30, long_start - 1)
+        base = window(series, start + 60, long_start - 1)
         during = window(series, long_start, long_end)
         after = window(series, long_end + 1, end)
         digits = 0 if key in KEDA_KEYS else 2

@@ -21,7 +21,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 TARGET_URL = os.environ.get('TARGET_URL', 'http://web:8000')
 BASELINE_RPS = float(os.environ.get('BASELINE_RPS', '10'))
 BASELINE_SECONDS = float(os.environ.get('BASELINE_SECONDS', '0.1'))
-WARMUP_SECONDS = float(os.environ.get('WARMUP_SECONDS', '90'))
+WARMUP_SECONDS = float(os.environ.get('WARMUP_SECONDS', '120'))
 LONG_REQUEST_SECONDS = float(os.environ.get('LONG_REQUEST_SECONDS', '300'))
 LONG_REQUESTS = int(os.environ.get('LONG_REQUESTS', '1'))
 COOLDOWN_SECONDS = float(os.environ.get('COOLDOWN_SECONDS', '150'))
