@@ -133,7 +133,7 @@ def summarize(data, status):
 
     base_steps = steps('reported_total', start, long_start)
     after = {ts: v for ts, v in data['fixed'].items() if ts > long_end}
-    peak_ts = max(after, key=after.get) if after else None
+    crossed_ts = min((ts for ts, v in after.items() if v >= KEDA_TARGET), default=None)
     lines = [
         f'# granian busy metric with {describe(status)}',
         '',
@@ -150,11 +150,16 @@ def summarize(data, status):
             f'thread-seconds** in one {STEP}s step. Steps were ~{statistics.median(base_steps or [0]):.0f} before it.'
         ),
     ]
-    if peak_ts is not None:
+    if after:
         during = window(data['fixed'], long_start, long_end)
+        crossed = (
+            f'crossed the target ({KEDA_TARGET:g}) {crossed_ts - long_end:.0f}s after the request finished'
+            if crossed_ts is not None
+            else f'stayed under the target ({KEDA_TARGET:g})'
+        )
         lines.append(
-            f'- The KEDA busy value (÷ 8) peaked at **{after[peak_ts]:.0f}‰** {peak_ts - long_end:.0f}s after the request '
-            f'finished (target {KEDA_TARGET:g}). While the request ran, it read at most {max(during or [0]):.0f}‰.'
+            f'- The KEDA busy value (÷ 8) read at most {max(during or [0]):.0f}‰ while the request ran. It {crossed} '
+            f'and peaked at **{max(after.values()):.0f}‰**.'
         )
     lines += [
         '',
