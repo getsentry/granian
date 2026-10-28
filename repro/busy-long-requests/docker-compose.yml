@@ -53,6 +53,10 @@ services:
     image: prom/prometheus:v3.5.0
     volumes:
       - ./prometheus:/etc/prometheus:ro
+    # Start every run with an empty TSDB, so samples from a previous run
+    # can't leak into this one through the 5m lookback.
+    tmpfs:
+      - /prometheus
     ports:
       - ${PROMETHEUS_PORT:-9090}:9090
 

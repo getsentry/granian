@@ -146,7 +146,7 @@ def summarize(data, status):
             f'{growth("long_total", long_start, long_end):.0f} was the long request.'
         ),
         (
-            f'- After it finished, the counter jumped by **{max(steps("reported_total", long_end, end), default=0):.0f} '
+            f'- After it finished, the counter jumped by **{max(steps("reported_total", long_end - STEP, end), default=0):.0f} '
             f'thread-seconds** in one {STEP}s step. Steps were ~{statistics.median(base_steps or [0]):.0f} before it.'
         ),
     ]
