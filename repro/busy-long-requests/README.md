@@ -25,14 +25,13 @@ over.
 |---|---|
 | `web` | granian serving a WSGI app (`app.py`) with `--workers 2 --blocking-threads 8 --blocking-threads-idle-timeout 20`, matching us default-common. Metrics on `:9090`. `GET /sleep?s=N` holds a blocking thread for N seconds. |
 | `loadgen` | Sends ~10 req/s of ~100ms requests. After 2 minutes it sends one 300s request, then keeps the baseline going for 150s. It exports `loadgen_busy_seconds_total`, which counts requests while they're still running. That's the ground truth. |
-| `prometheus` | Scrapes both every 15s. `prometheus/rules.yml` records the KEDA busy trigger in four variants: before getsentry/ops#24724, with it, and two mitigations. |
+| `prometheus` | Scrapes both every 15s. `rules.yml` records the KEDA busy trigger in four variants: before getsentry/ops#24724, with it, and two mitigations. |
 | `report` | Prints the trigger values live. When loadgen is done, it writes `out/busy-long-requests.png`, `out/summary.md` and `out/series.csv`. |
 
 ## Run it
 
-```bash
-cd repro/busy-long-requests
-```
+Every file sits in this one directory, so you can copy it anywhere (a gist
+works) and run it from there:
 
 ```bash
 docker compose up --build --exit-code-from report --attach report --attach loadgen
@@ -40,13 +39,16 @@ docker compose up --build --exit-code-from report --attach report --attach loadg
 
 The scenario takes about 10 minutes. The stack stops when `report` exits.
 
-The first build compiles granian from this checkout, so the repro also checks
-changes to `src/`. That takes a few minutes the first time; later builds reuse
-the cargo cache. To install a release from PyPI instead (about 30s):
+By default `web` installs granian 2.8.5 from PyPI. To build a granian checkout
+instead, for example to test a fix, point `GRANIAN_SRC` at it:
 
 ```bash
-GRANIAN_FROM=pypi GRANIAN_VERSION=2.8.5 docker compose up --build --exit-code-from report --attach report --attach loadgen
+GRANIAN_FROM=source GRANIAN_SRC=/path/to/granian docker compose up --build --exit-code-from report --attach report --attach loadgen
 ```
+
+`GRANIAN_SRC` defaults to `../..`, which is the repository root when you run
+from `repro/busy-long-requests` in getsentry/granian. The first source build
+takes a few minutes; later builds reuse the cargo cache.
 
 To look around in Prometheus (http://localhost:9090) after the run, start the
 stack detached instead, then stop it when you're done:
@@ -72,8 +74,9 @@ Set these in the environment of the `docker compose up` command.
 | `BASELINE_RPS` | `10` | Short requests per second (Poisson arrivals). |
 | `BASELINE_SECONDS` | `0.1` | Mean short request length (uniform, ±50%). |
 | `WORKERS` | `2` | granian workers. |
-| `GRANIAN_FROM` | `source` | `source` builds this checkout; `pypi` installs `GRANIAN_VERSION`. |
+| `GRANIAN_FROM` | `pypi` | `pypi` installs `GRANIAN_VERSION`; `source` builds `GRANIAN_SRC`. |
 | `GRANIAN_VERSION` | `2.8.5` | PyPI version for `GRANIAN_FROM=pypi`. |
+| `GRANIAN_SRC` | `../..` | granian checkout for `GRANIAN_FROM=source`. |
 | `WEB_PORT`, `PROMETHEUS_PORT` | `8000`, `9090` | Host ports. |
 
 ## Results
@@ -94,7 +97,7 @@ The chart in `out/busy-long-requests.png` has three panels:
 ## The KEDA query
 
 There was no access to getsentry/ops for this repro, so the busy trigger in
-`prometheus/rules.yml` is rebuilt from the PRODENG-2999 comments:
+`rules.yml` is rebuilt from the PRODENG-2999 comments:
 
 ```promql
 max(
@@ -111,7 +114,7 @@ Differences from the deployed query:
 - `or vector(1000)` is left off. It only matters when the series are missing.
 - Prometheus evaluates the rules every 15s. KEDA queries every 30s.
 
-If the deployed query differs, edit `prometheus/rules.yml` and rerun.
+If the deployed query differs, edit `rules.yml` and rerun.
 
 ## Limits
 

@@ -84,6 +84,7 @@ def fmt(value, width, digits=0, flag=False):
 
 def watch():
     """Print one row per evaluation interval until loadgen is done."""
+    print(f'Waiting for Prometheus ({PROMETHEUS_URL}) and loadgen ({LOADGEN_URL})...', flush=True)
     wait_for(f'{PROMETHEUS_URL}/-/ready', parse=lambda url: opener.open(url, timeout=10).close())
     status = wait_for(f'{LOADGEN_URL}/status')
     print(
